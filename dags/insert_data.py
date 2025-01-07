@@ -52,7 +52,10 @@ def log_start(**kwargs):
     context = kwargs
     cur_run_id = context['dag_run'].run_id  # id текущего запуска dag, для идентификации записи в таблице логов
     with engine.connect() as connection:
-        connection.execute(f"INSERT INTO logs.load_logs (event_id, start_time) VALUES ('{cur_run_id}', current_timestamp);")
+        connection.execute(f"""
+            INSERT INTO logs.load_logs (event_id, start_time) 
+            VALUES ('{cur_run_id}', current_timestamp);
+        """)
         time.sleep(5)  # Задержка на 5 секунд, которая требуется по заданию
 
 
@@ -61,7 +64,12 @@ def log_end(**kwargs):
     context = kwargs
     cur_run_id = context['dag_run'].run_id
     with engine.connect() as connection:
-        connection.execute(f"UPDATE logs.load_logs SET end_time = current_timestamp WHERE event_id = '{cur_run_id}';")
+        connection.execute(f"""
+            UPDATE logs.load_logs 
+            SET end_time = current_timestamp, 
+                duration = current_timestamp - start_time 
+            WHERE event_id = '{cur_run_id}';
+        """)
 
 
 # ---------------------
