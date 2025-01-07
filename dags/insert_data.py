@@ -1,8 +1,6 @@
 from airflow import DAG
-# from airflow.operators.dummy_operator import DummyOperator  # оператор-заглушка (пустой оператор)
-# from airflow.operators.python_operator import PythonOperator  # Python оператор. Этот класс позволяет определить пользовательсукю функцию python и выполнить ее в рамах рабочего процесса airflow
-from airflow.operators.empty import EmptyOperator as DummyOperator
-from airflow.operators.python import PythonOperator
+from airflow.operators.empty import EmptyOperator as DummyOperator  # оператор-заглушка (пустой оператор)
+from airflow.operators.python import PythonOperator  # Python оператор. Позволяет определить пользовательскую функцию python и выполнить ее в рамках рабочего процесса airflow
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator  # оператор для запуска SQL из python
 from airflow.providers.postgres.hooks.postgres import PostgresHook  # связь с БД PostgreSQL
 from airflow.configuration import conf  # конфигурация нашего Airflow (настройки)
@@ -11,32 +9,30 @@ from airflow.models import Variable  # импортируем переменны
 import pandas  # библиотека для загрузки файлов из БД
 from datetime import datetime
 import time
-import uuid
 
 # ----------
-# Переменные
+# Переменные и константы
 # ----------
 
-# Чтобы иметь возможность запускать sql скрипты из Airflow, зададим параметр template_searchpath - шаблон по которому ищется начальный путь до файлов
+# Чтобы иметь возможность запускать sql скрипты из Airflow, зададим параметр template_searchpath - шаблон по которому ищется начальный путь до файлов.
 # Вытаскиваем из настроек Airflow переменную my_path - путь до используемых файлов. Сейчас она имеет значение /files/
 PATH = Variable.get("my_path")
 # Добавляем этот путь в шаблон
 conf.set("core", "template_searchpath", PATH)
 
-# Рандомное число - id текущего запуска для логов
-# cur_run_id = str(uuid.uuid1())
-# cur_run_id = context['dag_run'].run_id
-
-# DB_CONNECTION = "postgres-ht"
-DB_CONNECTION = "postgres-project"
+# DB_CONNECTION = "postgres-ht"  # Связь с базой данных для дз "Практика"
+DB_CONNECTION = "postgres-project"  # Связь с базой данных для проекта
 
 # Получаем настройки подключения для PostgreSQL (из connections в Airflow) к указанной БД
-postgres_hook = PostgresHook(DB_CONNECTION)         # подключение для дз по airflow
-# postgres_hook = PostgresHook("postgres-project")  # подключение для проекта
+postgres_hook = PostgresHook(DB_CONNECTION)
 
 # Создаем подключение к БД по полученным ранее настройкам
 engine = postgres_hook.get_sqlalchemy_engine()
 
+
+# -------
+# Функции
+# -------
 
 # Функция чтения данных из файла и загрузки сырых данных в БД в схему stage (таблицы создаются автоматически, если их не было до этого)
 def insert_data(table_name, encoding=None):
@@ -44,7 +40,6 @@ def insert_data(table_name, encoding=None):
     # Читаем информацию из csv файла с таблицей table_name. Эти файлы лежат в папке Airflow/files
     # Параметры: путь файла, разделитель, кодировка (в стандартной utf8 один символ таблицы md_currency_d оставался загадочным)
     df = pandas.read_csv(f"{PATH}{table_name}.csv", delimiter=";", encoding=encoding)
-    # df = pandas.read_csv(f"{PATH}{table_name}.csv", delimiter=";", encoding='cp1252')
 
     # Методом to_sql загружаем наш датафрейм в БД (создаем/обновляем таблицы и загружаем туда данные)
     # Параметры: название таблицы, подключение, схема, поведение при существовании такой таблицы в СУБД (append = Insert new values to the existing table), наличие индекса
@@ -52,20 +47,26 @@ def insert_data(table_name, encoding=None):
     df.to_sql(table_name, engine, schema="stage", if_exists="replace", index=False)
 
 
+# Функция для логирования в базу данных времени начала загрузки
 def log_start(**kwargs):
     context = kwargs
-    cur_run_id = context['dag_run'].run_id
+    cur_run_id = context['dag_run'].run_id  # id текущего запуска dag, для идентификации записи в таблице логов
     with engine.connect() as connection:
         connection.execute(f"INSERT INTO logs.load_logs (event_id, start_time) VALUES ('{cur_run_id}', current_timestamp);")
-        time.sleep(5)
+        time.sleep(5)  # Задержка на 5 секунд, которая требуется по заданию
 
 
+# Функция для логирования в базу данных времени начала загрузки
 def log_end(**kwargs):
     context = kwargs
     cur_run_id = context['dag_run'].run_id
     with engine.connect() as connection:
         connection.execute(f"UPDATE logs.load_logs SET end_time = current_timestamp WHERE event_id = '{cur_run_id}';")
 
+
+# ---------------------
+# DAG (сам ETL процесс)
+# ---------------------
 
 # Переменная с параметрами DAG по умолчанию
 default_args = {
@@ -78,7 +79,7 @@ with DAG(
     # Параметры DAG
 
     "insert_data",                          # название DAG
-    default_args=default_args,              # параметры по умолчанию - присваим им значение ранее определенной переменной
+    default_args=default_args,              # параметры по умолчанию - присвоим им значение ранее определенной переменной
     description="Загрузка данных в stage",  # описание DAG
     catchup=False,                          # не выполняет запланированные по расписанию запуски DAG, которые находятся раньше текущей даты (если start_date раньше, чем текущая дата)
     template_searchpath=[PATH],
@@ -87,15 +88,26 @@ with DAG(
 ) as dag:
     # Тело DAG - задачи
 
-    cur_run_id = str(uuid.uuid1())
-
     # ------------------
     # Задачи (операторы)
     # ------------------
 
-    # Начало работы DAGа - оператор-заглушка
+    # ---------
+    # Операторы-заглушки
+
+    # Начало работы DAGа
     start = DummyOperator(
         task_id="start"
+    )
+
+    # Разделитель
+    split = DummyOperator(
+        task_id="split"
+    )
+
+    # Окончание работы DAGа
+    end = DummyOperator(
+        task_id="end"
     )
 
     # ---------
@@ -135,11 +147,6 @@ with DAG(
         task_id="md_ledger_account_s",
         python_callable=insert_data,
         op_kwargs={"table_name": "md_ledger_account_s"}
-    )
-
-    # Разделитель - оператор-заглушка
-    split = DummyOperator(
-        task_id="split"
     )
 
     # ---------
@@ -183,7 +190,8 @@ with DAG(
         sql="sql/md_ledger_account_s.sql"
     )
 
-    # Логирование в БД
+    # --------
+    # Операторы для логирования в БД
 
     # sql_log_start = SQLExecuteQueryOperator(
     #     task_id="sql_log_start",
@@ -212,6 +220,7 @@ with DAG(
         provide_context=True,
     )
 
+    # # --------
     # # Вызов процедур, созданных заранее в БД (оператор тот же, что и для sql скриптов)
 
     # sql_get_posting_data_by_date = SQLExecuteQueryOperator(
@@ -227,11 +236,6 @@ with DAG(
     #     conn_id=DB_CONNECTION,
     #     sql="CALL dm.get_debet_and_credit_sums()"
     # )
-
-    # Окончание работы DAGа - оператор-заглушка
-    end = DummyOperator(
-        task_id="end"
-    )
 
     # ---------------------
     # Порядок запуска задач
