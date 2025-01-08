@@ -171,5 +171,5 @@ cython_debug/
 .pypirc
 
 /docker-compose.yaml
-/airflow-setup.bat
+#/airflow-setup.bat
 /logs/
