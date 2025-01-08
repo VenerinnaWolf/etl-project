@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS ds.ft_balance_f(
 	on_date       DATE NOT NULL,
 	account_rk    INT8 NOT NULL,
 	currency_rk   INT8,
-	balance_out   NUMERIC(19,2),
+	balance_out   NUMERIC(23,8),
 	PRIMARY KEY (on_date, account_rk)
 );
 
@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS ds.ft_posting_f(
 	oper_date          DATE NOT NULL,
 	credit_account_rk  INT8 NOT NULL,
 	debet_account_rk   INT8 NOT NULL,
-	credit_amount      NUMERIC(19,2),
-	debet_amount       NUMERIC(19,2)
+	credit_amount      NUMERIC(23,8),
+	debet_amount       NUMERIC(23,8)
 );
 
 --DROP TABLE IF EXISTS ds.md_account_d;
