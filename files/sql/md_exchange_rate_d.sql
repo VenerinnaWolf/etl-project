@@ -16,5 +16,5 @@ WHERE merd."DATA_ACTUAL_DATE" IS NOT NULL
 	AND merd."CURRENCY_RK" IS NOT NULL
 ON CONFLICT ON CONSTRAINT md_exchange_rate_d_pkey DO UPDATE
 	SET currency_rk = excluded.currency_rk,
-      reduced_cource = excluded.reduced_cource,
-      code_iso_num = excluded.code_iso_num;
+        reduced_cource = excluded.reduced_cource,
+        code_iso_num = excluded.code_iso_num;

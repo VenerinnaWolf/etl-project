@@ -53,7 +53,7 @@ def log_start(**kwargs):
     cur_run_id = context['dag_run'].run_id  # id текущего запуска dag, для идентификации записи в таблице логов
     with engine.connect() as connection:
         connection.execute(f"""
-            INSERT INTO logs.load_logs (event_id, start_time) 
+            INSERT INTO logs.load_logs (run_id, start_time) 
             VALUES ('{cur_run_id}', current_timestamp);
         """)
         time.sleep(5)  # Задержка на 5 секунд, которая требуется по заданию
@@ -68,7 +68,7 @@ def log_end(**kwargs):
             UPDATE logs.load_logs 
             SET end_time = current_timestamp, 
                 duration = current_timestamp - start_time 
-            WHERE event_id = '{cur_run_id}';
+            WHERE run_id = '{cur_run_id}';
         """)
 
 
@@ -201,21 +201,6 @@ with DAG(
     # --------
     # Операторы для логирования в БД
 
-    # sql_log_start = SQLExecuteQueryOperator(
-    #     task_id="sql_log_start",
-    #     conn_id=DB_CONNECTION,
-    #     sql=f"INSERT INTO logs.load_logs (event_id, start_time) VALUES ('{cur_run_id}', current_timestamp);"
-    #     # sql=log_start
-    # )
-
-    # sql_log_end = SQLExecuteQueryOperator(
-    #     task_id="sql_log_end",
-    #     conn_id=DB_CONNECTION,
-    #     # sql=f"UPDATE logs.load_logs SET end_time = current_timestamp WHERE event_id = '{cur_run_id}';"
-    #     sql=f"INSERT INTO logs.load_logs (event_id, end_time) VALUES ('{cur_run_id}', current_timestamp);"
-    #     # sql=log_end
-    # )
-
     task_log_start = PythonOperator(
         task_id="log_start",
         python_callable=log_start,
@@ -227,23 +212,6 @@ with DAG(
         python_callable=log_end,
         provide_context=True,
     )
-
-    # # --------
-    # # Вызов процедур, созданных заранее в БД (оператор тот же, что и для sql скриптов)
-
-    # sql_get_posting_data_by_date = SQLExecuteQueryOperator(
-    #     task_id="sql_get_posting_data_by_date",
-    #     conn_id=DB_CONNECTION,
-    #     sql="CALL dm.get_posting_data_by_date()"  # вместо пути до файла задаем запрос - вызов функции
-    # )
-
-    # # Вызов запроса для получения суммы проводок по дебету и кредиту за 15.01.2018
-
-    # sql_get_debet_and_credit_sums = SQLExecuteQueryOperator(
-    #     task_id="sql_get_debet_and_credit_sums",
-    #     conn_id=DB_CONNECTION,
-    #     sql="CALL dm.get_debet_and_credit_sums()"
-    # )
 
     # ---------------------
     # Порядок запуска задач

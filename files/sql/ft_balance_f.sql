@@ -14,4 +14,4 @@ WHERE fbf."ACCOUNT_RK" IS NOT NULL
 	AND fbf."ON_DATE" IS NOT NULL
 ON CONFLICT ON CONSTRAINT ft_balance_f_pkey DO UPDATE
 	SET currency_rk = excluded.currency_rk,
-      balance_out = excluded.balance_out;
+        balance_out = excluded.balance_out;
