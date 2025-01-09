@@ -1,6 +1,12 @@
 -- Процедура заполнения витрины оборотов по лицевым счетам
 CREATE OR REPLACE PROCEDURE ds.fill_account_turnover_f(i_OnDate date)
-LANGUAGE SQL AS $$
+AS $$
+DECLARE
+	_log_start	TIMESTAMP;
+	_log_end 		TIMESTAMP;
+	_duration 	INTERVAL;
+BEGIN
+	_log_start = clock_timestamp();
 
     -- для возможности перезапускать расчет много раз за одни и те же даты, удаляем записи за дату расчета
     DELETE FROM dm.dm_account_turnover_f WHERE on_date = i_OnDate;
@@ -46,12 +52,25 @@ LANGUAGE SQL AS $$
     LEFT JOIN ds.ft_balance_f fbf USING (account_rk)
     LEFT JOIN actual_exchange_rates aer USING (currency_rk);
 
-$$;
+	-- Логирование
+	_log_end = clock_timestamp();
+	_duration = _log_end - _log_start;
+
+	INSERT INTO logs.procedures_logs (procedure_name, end_time, start_time, duration)
+	VALUES ('ds.fill_account_turnover_f(' || i_OnDate|| ')', _log_end, _log_start, _duration);
+END
+$$ LANGUAGE PLPGSQL;
 
 
 -- Процедура заполнения витрины остатков по лицевым счетам
 CREATE OR REPLACE PROCEDURE ds.fill_account_balance_f(i_OnDate date)
-LANGUAGE SQL AS $$
+AS $$
+DECLARE
+	_log_start	TIMESTAMP;
+	_log_end 		TIMESTAMP;
+	_duration 	INTERVAL;
+BEGIN
+	_log_start = clock_timestamp();
 
 	-- для возможности перезапускать расчет много раз за одни и те же даты, удаляем записи за дату расчета
 	DELETE FROM dm.dm_account_balance_f WHERE on_date = i_OnDate;
@@ -88,4 +107,11 @@ LANGUAGE SQL AS $$
 		LEFT JOIN cur_balances cb USING (account_rk)
 	WHERE prev.on_date = i_OnDate - interval '1 day';
 
-$$;
+	-- Логирование
+	_log_end = clock_timestamp();
+	_duration = _log_end - _log_start;
+
+	INSERT INTO logs.procedures_logs (procedure_name, end_time, start_time, duration)
+	VALUES ('ds.fill_account_balance_f(' || i_OnDate|| ')', _log_end, _log_start, _duration);
+END
+$$ LANGUAGE PLPGSQL;
