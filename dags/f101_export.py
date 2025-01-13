@@ -1,13 +1,11 @@
 from airflow import DAG
 from airflow.operators.empty import EmptyOperator as DummyOperator  # оператор-заглушка (пустой оператор)
 from airflow.operators.python import PythonOperator  # Python оператор. Позволяет определить пользовательскую функцию python и выполнить ее в рамках рабочего процесса airflow
-from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator  # оператор для запуска SQL из python
 
 from datetime import datetime
-import time
 
-from core.constants import PATH, DB_CONNECTION
-from core.functions import insert_data, log_start, log_end, export_data
+from core.constants import PATH
+from core.functions import export_data
 
 # ---------------------
 # DAG (сам ETL процесс)
