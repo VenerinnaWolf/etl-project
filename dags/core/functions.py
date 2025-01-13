@@ -1,7 +1,7 @@
 import pandas  # библиотека для загрузки файлов из БД
 import time
 
-from .constants import PATH, engine
+from .constants import ABSOLUTE_AIRFLOW_PATH, PATH, engine
 
 
 # Функция чтения данных из файла и загрузки сырых данных в БД в схему stage (таблицы создаются автоматически, если их не было до этого)
@@ -22,8 +22,8 @@ def export_data(schema, table_name, **kwargs):
     task_name = f"export_{table_name}"
     log_start(task_name, **kwargs)  # логируем начало
 
-    # file_path = f"{PATH}{table_name}.csv"
-    file_path = f"C:\\Airflow\\files\\{table_name}.csv"  # Тут должен быть абсолютный путь до ваших файлов
+    # file_path = f"{PATH}{table_name}.csv"  # Такой путь не работает, хотя он работает в функции pandas.read_csv при обратном импорте файлов в БД. Магия
+    file_path = f"{ABSOLUTE_AIRFLOW_PATH}\\files\\{table_name}.csv"  # Тут должен быть абсолютный путь до ваших файлов
     open(file_path, 'w').close()  # Создаем файл, если его не существовало до этого. Если файл существовал, то очищаем его
     with engine.connect() as connection:
         connection.execute(f"""
