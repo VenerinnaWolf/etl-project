@@ -17,6 +17,22 @@ def insert_data(table_name, encoding=None):
     df.to_sql(table_name, engine, schema="stage", if_exists="replace", index=False)
 
 
+# Функция экспорта таблицы из базы данных в csv файл
+def export_data(schema, table_name, **kwargs):
+    task_name = f"export_{table_name}"
+    log_start(task_name, **kwargs)  # логируем начало
+
+    # file_path = f"{PATH}{table_name}.csv"
+    file_path = f"C:\\Airflow\\files\\{table_name}.csv"  # Тут должен быть абсолютный путь до ваших файлов
+    open(file_path, 'w').close()  # Создаем файл, если его не существовало до этого. Если файл существовал, то очищаем его
+    with engine.connect() as connection:
+        connection.execute(f"""
+            COPY {schema}.{table_name} TO '{file_path}' WITH (FORMAT CSV, HEADER);
+        """)
+
+    log_end(task_name, **kwargs)  # логируем конец
+
+
 # Функция для логирования в базу данных времени начала загрузки
 def log_start(**kwargs):
     context = kwargs
@@ -29,6 +45,21 @@ def log_start(**kwargs):
         time.sleep(5)  # Задержка на 5 секунд, которая требуется по заданию
 
 
+# Та же функция, только для логирования каждой задачи по отдельности
+def log_start(task_name, **kwargs):
+    context = kwargs
+    cur_run_id = context['dag_run'].run_id  # id текущего запуска dag, для идентификации записи в таблице логов
+    with engine.connect() as connection:
+        connection.execute(f"""
+            INSERT INTO logs.load_logs (run_id, task_name, start_time) 
+                VALUES ('{cur_run_id}', '{task_name}', current_timestamp)
+            ON CONFLICT ON CONSTRAINT load_logs_pkey DO UPDATE
+                SET task_name = excluded.task_name,
+                start_time = excluded.start_time;
+        """)
+        # time.sleep(5)  # Задержка на 5 секунд, которая требуется по заданию
+
+
 # Функция для логирования в базу данных времени начала загрузки
 def log_end(**kwargs):
     context = kwargs
@@ -39,4 +70,17 @@ def log_end(**kwargs):
             SET end_time = current_timestamp, 
                 duration = current_timestamp - start_time 
             WHERE run_id = '{cur_run_id}';
+        """)
+
+
+# Та же функция, только для логирования каждой задачи по отдельности
+def log_end(task_name, **kwargs):
+    context = kwargs
+    cur_run_id = context['dag_run'].run_id
+    with engine.connect() as connection:
+        connection.execute(f"""
+            UPDATE logs.load_logs 
+            SET end_time = current_timestamp, 
+                duration = current_timestamp - start_time 
+            WHERE run_id = '{cur_run_id}' AND task_name = '{task_name}';
         """)
