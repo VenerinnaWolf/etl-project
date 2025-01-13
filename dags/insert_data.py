@@ -2,74 +2,12 @@ from airflow import DAG
 from airflow.operators.empty import EmptyOperator as DummyOperator  # оператор-заглушка (пустой оператор)
 from airflow.operators.python import PythonOperator  # Python оператор. Позволяет определить пользовательскую функцию python и выполнить ее в рамках рабочего процесса airflow
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator  # оператор для запуска SQL из python
-from airflow.providers.postgres.hooks.postgres import PostgresHook  # связь с БД PostgreSQL
-from airflow.configuration import conf  # конфигурация нашего Airflow (настройки)
-from airflow.models import Variable  # импортируем переменные, которые мы вводили в настройках Airflow (http://localhost:8080/variable/)
 
-import pandas  # библиотека для загрузки файлов из БД
 from datetime import datetime
 import time
 
-# ----------
-# Переменные и константы
-# ----------
-
-# Чтобы иметь возможность запускать sql скрипты из Airflow, зададим параметр template_searchpath - шаблон по которому ищется начальный путь до файлов.
-# Вытаскиваем из настроек Airflow переменную my_path - путь до используемых файлов. Сейчас она имеет значение /files/
-PATH = Variable.get("my_path")
-# Добавляем этот путь в шаблон
-conf.set("core", "template_searchpath", PATH)
-
-# DB_CONNECTION = "postgres-ht"  # Связь с базой данных для дз "Практика"
-DB_CONNECTION = "postgres-project"  # Связь с базой данных для проекта
-
-# Получаем настройки подключения для PostgreSQL (из connections в Airflow) к указанной БД
-postgres_hook = PostgresHook(DB_CONNECTION)
-
-# Создаем подключение к БД по полученным ранее настройкам
-engine = postgres_hook.get_sqlalchemy_engine()
-
-
-# -------
-# Функции
-# -------
-
-# Функция чтения данных из файла и загрузки сырых данных в БД в схему stage (таблицы создаются автоматически, если их не было до этого)
-def insert_data(table_name, encoding=None):
-
-    # Читаем информацию из csv файла с таблицей table_name. Эти файлы лежат в папке Airflow/files
-    # Параметры: путь файла, разделитель, кодировка (в стандартной utf8 один символ таблицы md_currency_d оставался загадочным)
-    df = pandas.read_csv(f"{PATH}{table_name}.csv", delimiter=";", encoding=encoding)
-
-    # Методом to_sql загружаем наш датафрейм в БД (создаем/обновляем таблицы и загружаем туда данные)
-    # Параметры: название таблицы, подключение, схема, поведение при существовании такой таблицы в СУБД (append = Insert new values to the existing table), наличие индекса
-    # df.to_sql(table_name, engine, schema="stage", if_exists="append", index=False)
-    df.to_sql(table_name, engine, schema="stage", if_exists="replace", index=False)
-
-
-# Функция для логирования в базу данных времени начала загрузки
-def log_start(**kwargs):
-    context = kwargs
-    cur_run_id = context['dag_run'].run_id  # id текущего запуска dag, для идентификации записи в таблице логов
-    with engine.connect() as connection:
-        connection.execute(f"""
-            INSERT INTO logs.load_logs (run_id, start_time) 
-            VALUES ('{cur_run_id}', current_timestamp);
-        """)
-        time.sleep(5)  # Задержка на 5 секунд, которая требуется по заданию
-
-
-# Функция для логирования в базу данных времени начала загрузки
-def log_end(**kwargs):
-    context = kwargs
-    cur_run_id = context['dag_run'].run_id
-    with engine.connect() as connection:
-        connection.execute(f"""
-            UPDATE logs.load_logs 
-            SET end_time = current_timestamp, 
-                duration = current_timestamp - start_time 
-            WHERE run_id = '{cur_run_id}';
-        """)
+from core.constants import PATH, DB_CONNECTION
+from core.functions import insert_data, log_start, log_end
 
 
 # ---------------------
@@ -88,7 +26,7 @@ with DAG(
 
     "insert_data",                          # название DAG
     default_args=default_args,              # параметры по умолчанию - присвоим им значение ранее определенной переменной
-    description="Загрузка данных в stage",  # описание DAG
+    description="Задание 1.1",              # описание DAG
     catchup=False,                          # не выполняет запланированные по расписанию запуски DAG, которые находятся раньше текущей даты (если start_date раньше, чем текущая дата)
     template_searchpath=[PATH],
     # schedule="0 0 * * *"
