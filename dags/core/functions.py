@@ -1,20 +1,33 @@
 import pandas  # библиотека для загрузки файлов из БД
 import time
+from sqlalchemy import text
 
 from .constants import ABSOLUTE_AIRFLOW_PATH, PATH, engine
 
 
 # Функция чтения данных из файла и загрузки сырых данных в БД в схему stage (таблицы создаются автоматически, если их не было до этого)
-def insert_data(table_name, encoding=None):
+def insert_data(table_name, delimiter=";", encoding=None):
 
     # Читаем информацию из csv файла с таблицей table_name. Эти файлы лежат в папке Airflow/files
     # Параметры: путь файла, разделитель, кодировка (в стандартной utf8 один символ таблицы md_currency_d оставался загадочным)
-    df = pandas.read_csv(f"{PATH}{table_name}.csv", delimiter=";", encoding=encoding)
+    df = pandas.read_csv(f"{PATH}{table_name}.csv", delimiter=delimiter, encoding=encoding)
 
     # Методом to_sql загружаем наш датафрейм в БД (создаем/обновляем таблицы и загружаем туда данные)
     # Параметры: название таблицы, подключение, схема, поведение при существовании такой таблицы в СУБД (append = Insert new values to the existing table), наличие индекса
     # df.to_sql(table_name, engine, schema="stage", if_exists="append", index=False)
     df.to_sql(table_name, engine, schema="stage", if_exists="replace", index=False)
+
+
+# Та же функция, но с логированием
+def insert_data(table_name, delimiter=";", encoding=None, **kwargs):
+    task_name = f"insert_{table_name}"
+    log_start(task_name, **kwargs)  # логируем начало
+
+    # insert_data(table_name, delimiter, encoding)  # вызываем функцию, определенную выше
+    df = pandas.read_csv(f"{PATH}{table_name}.csv", delimiter=delimiter, encoding=encoding)
+    df.to_sql(table_name, engine, schema="stage", if_exists="replace", index=False)
+
+    log_end(task_name, **kwargs)  # логируем конец
 
 
 # Функция экспорта таблицы из базы данных в csv файл
@@ -29,6 +42,19 @@ def export_data(schema, table_name, **kwargs):
         connection.execute(f"""
             COPY {schema}.{table_name} TO '{file_path}' WITH (FORMAT CSV, HEADER);
         """)
+
+    log_end(task_name, **kwargs)  # логируем конец
+
+
+def transform_data(table_name, **kwargs):
+    task_name = f"transform_{table_name}"
+    log_start(task_name, **kwargs)  # логируем начало
+
+    file_path = f"{PATH}/sql/{table_name}.sql"  # А тут абсолютный путь не требуется :[
+    with engine.connect() as connection:
+        with open(file_path) as file:
+            query = text(file.read())
+            connection.execute(query)
 
     log_end(task_name, **kwargs)  # логируем конец
 
@@ -54,10 +80,9 @@ def log_start(task_name, **kwargs):
             INSERT INTO logs.load_logs (run_id, task_name, start_time) 
                 VALUES ('{cur_run_id}', '{task_name}', current_timestamp)
             ON CONFLICT ON CONSTRAINT load_logs_pkey DO UPDATE
-                SET task_name = excluded.task_name,
-                start_time = excluded.start_time;
+                SET start_time = excluded.start_time;
         """)
-        # time.sleep(5)  # Задержка на 5 секунд, которая требуется по заданию
+        time.sleep(5)  # Задержка на 5 секунд, которая требуется по заданию
 
 
 # Функция для логирования в базу данных времени начала загрузки
