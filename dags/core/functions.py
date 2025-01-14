@@ -46,6 +46,7 @@ def export_data(schema, table_name, **kwargs):
     log_end(task_name, **kwargs)  # логируем конец
 
 
+# Функция вызова sql скрипта из файла
 def transform_data(table_name, **kwargs):
     task_name = f"transform_{table_name}"
     log_start(task_name, **kwargs)  # логируем начало

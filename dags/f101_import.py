@@ -58,6 +58,7 @@ with DAG(
         provide_context=True
     )
 
+    # Трансформация сырых данных из схемы stage в таблицу в схеме dm (запуск sql скрипта)
     transform_f101 = PythonOperator(
         task_id="transform_f101",
         python_callable=transform_data,
