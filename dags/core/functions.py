@@ -18,16 +18,16 @@ def insert_data(table_name, delimiter=";", encoding=None):
     df.to_sql(table_name, engine, schema="stage", if_exists="replace", index=False)
 
 
-# Та же функция, но с логированием
-def insert_data(table_name, delimiter=";", encoding=None, **kwargs):
-    task_name = f"insert_{table_name}"
-    log_start(task_name, **kwargs)  # логируем начало
-
-    # insert_data(table_name, delimiter, encoding)  # вызываем функцию, определенную выше
-    df = pandas.read_csv(f"{PATH}{table_name}.csv", delimiter=delimiter, encoding=encoding)
-    df.to_sql(table_name, engine, schema="stage", if_exists="replace", index=False)
-
-    log_end(task_name, **kwargs)  # логируем конец
+# # Та же функция, но с логированием
+# def insert_data(table_name, delimiter=";", encoding=None, **kwargs):
+#     task_name = f"insert_{table_name}"
+#     log_start(task_name, **kwargs)  # логируем начало
+#
+#     # insert_data(table_name, delimiter, encoding)  # вызываем функцию, определенную выше
+#     df = pandas.read_csv(f"{PATH}{table_name}.csv", delimiter=delimiter, encoding=encoding)
+#     df.to_sql(table_name, engine, schema="stage", if_exists="replace", index=False)
+#
+#     log_end(task_name, **kwargs)  # логируем конец
 
 
 # Функция экспорта таблицы из базы данных в csv файл
@@ -48,8 +48,8 @@ def export_data(schema, table_name, **kwargs):
 
 # Функция вызова sql скрипта из файла
 def transform_data(table_name, **kwargs):
-    task_name = f"transform_{table_name}"
-    log_start(task_name, **kwargs)  # логируем начало
+    # task_name = f"transform_{table_name}"
+    # log_start(task_name, **kwargs)  # логируем начало
 
     file_path = f"{PATH}/sql/{table_name}.sql"  # А тут абсолютный путь не требуется :[
     with engine.connect() as connection:
@@ -57,7 +57,7 @@ def transform_data(table_name, **kwargs):
             query = text(file.read())
             connection.execute(query)
 
-    log_end(task_name, **kwargs)  # логируем конец
+    # log_end(task_name, **kwargs)  # логируем конец
 
 
 # Функция для логирования в базу данных времени начала загрузки
@@ -69,7 +69,7 @@ def log_start(**kwargs):
             INSERT INTO logs.load_logs (run_id, start_time) 
             VALUES ('{cur_run_id}', current_timestamp);
         """)
-        time.sleep(5)  # Задержка на 5 секунд, которая требуется по заданию
+        # time.sleep(5)  # Задержка на 5 секунд, которая требуется по заданию
 
 
 # Та же функция, только для логирования каждой задачи по отдельности
@@ -83,7 +83,7 @@ def log_start(task_name, **kwargs):
             ON CONFLICT ON CONSTRAINT load_logs_pkey DO UPDATE
                 SET start_time = excluded.start_time;
         """)
-        time.sleep(5)  # Задержка на 5 секунд, которая требуется по заданию
+        # time.sleep(5)  # Задержка на 5 секунд, которая требуется по заданию
 
 
 # Функция для логирования в базу данных времени начала загрузки

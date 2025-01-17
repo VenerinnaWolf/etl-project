@@ -13,7 +13,8 @@ ABSOLUTE_AIRFLOW_PATH = "C:\\Airflow"
 PATH = Variable.get("my_path")
 
 # DB_CONNECTION = "postgres-ht"  # Связь с базой данных для дз "Практика"
-DB_CONNECTION = "postgres-project"  # Связь с базой данных для проекта
+# DB_CONNECTION = "postgres-project"  # Связь с базой данных для проектного задания 1
+DB_CONNECTION = "postgres-project2"  # Связь с базой данных для проектного задания 2
 
 # Получаем настройки подключения для PostgreSQL (из connections в Airflow) к указанной БД
 postgres_hook = PostgresHook(DB_CONNECTION)
